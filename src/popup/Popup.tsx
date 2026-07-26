@@ -35,16 +35,16 @@ export default function Popup() {
       const tab = tabs[0]
       if (!tab?.url) return
 
-      const tabUrl = tab.url
-      setUrl(tabUrl)
+      const currentTabUrl = tab.url
+      setUrl(currentTabUrl)
 
-      console.log('[duplicate-check] querying url:', tabUrl)
+      console.log('[duplicate-check] currentTabUrl:', currentTabUrl)
       const { data, error: duplicateError } = await supabase
         .from('applications')
         .select('applied_date, applied_time')
-        .eq('url', tabUrl)
+        .eq('url', currentTabUrl)
         .maybeSingle()
-      console.log('[duplicate-check] result:', { data, duplicateError })
+      console.log('[duplicate-check] data, error:', data, duplicateError)
 
       if (!duplicateError && data?.applied_date) {
         const formattedDate = format(parseISO(data.applied_date), 'd MMMM yyyy')
@@ -53,7 +53,7 @@ export default function Popup() {
         )
       }
 
-      if (isLinkedInJobUrl(tabUrl) && tab.id !== undefined) {
+      if (isLinkedInJobUrl(currentTabUrl) && tab.id !== undefined) {
         try {
           const response = await chrome.tabs.sendMessage(tab.id, {
             type: 'GET_LINKEDIN_JOB_INFO',
