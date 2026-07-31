@@ -1,10 +1,14 @@
 import { format, parseISO } from 'date-fns'
 import { CalendarDays, Trash2, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
+import DatePicker, { datePickerInputClassName } from '../../components/DatePicker'
 import type { Application } from '../../lib/applicationTypes'
 import type { Interview, InterviewOutcome } from '../../lib/interviewTypes'
 import { formatOutcome, outcomeToDb } from '../../lib/interviewTypes'
 import { supabase } from '../../lib/supabaseClient'
+
+const inputClassName =
+  'w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20'
 
 const INTERVIEW_TYPE_SUGGESTIONS = [
   'Phone',
@@ -13,9 +17,6 @@ const INTERVIEW_TYPE_SUGGESTIONS = [
   'Technical',
   'Behavioral',
 ]
-
-const inputClassName =
-  'w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20'
 
 interface InterviewsModalProps {
   application: Application
@@ -85,7 +86,7 @@ export default function InterviewsModal({
 
     const { error: insertError } = await supabase.from('interviews').insert({
       application_id: application.id,
-      stage: stage.trim() || null,
+      interview_stage: stage.trim() || null,
       interviewer_name: interviewerName.trim() || null,
       interview_date: interviewDate,
       interview_type: interviewType.trim() || null,
@@ -133,9 +134,17 @@ export default function InterviewsModal({
         role="dialog"
         aria-labelledby="interviews-modal-title"
       >
-        <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4">
-          <div>
-            <div className="mb-1 flex items-center gap-2 text-teal-600">
+        <div className="relative border-b border-slate-100 px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <div className="text-center">
+            <div className="mb-1 flex items-center justify-center gap-2 text-teal-600">
               <CalendarDays className="h-4 w-4" />
               <span className="text-xs font-semibold uppercase tracking-wide">
                 Interviews
@@ -151,14 +160,6 @@ export default function InterviewsModal({
               {application.job_title || 'No job title'}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
         </div>
 
         <div className="space-y-4 px-6 py-4">
@@ -186,7 +187,7 @@ export default function InterviewsModal({
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-[#1e293b]">
-                        {interview.stage || 'Interview round'}
+                        {interview.interview_stage || 'Interview round'}
                       </p>
                       <p className="mt-1 text-xs text-slate-500">
                         {interview.interview_date
@@ -264,12 +265,11 @@ export default function InterviewsModal({
                 <label className="mb-1 block text-xs font-medium text-slate-600">
                   Date
                 </label>
-                <input
-                  type="date"
+                <DatePicker
                   value={interviewDate}
-                  onChange={(e) => setInterviewDate(e.target.value)}
-                  className={inputClassName}
-                  required
+                  onChange={setInterviewDate}
+                  className={datePickerInputClassName}
+                  popoverAlign="center"
                 />
               </div>
               <div>

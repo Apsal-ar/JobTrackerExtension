@@ -1,3 +1,4 @@
+import DatePicker from '../components/DatePicker'
 import { format, parseISO } from 'date-fns'
 import { useEffect, useState, type FormEvent } from 'react'
 import { isLinkedInJobUrl } from '../lib/isLinkedInJobUrl'
@@ -190,11 +191,10 @@ export default function Popup() {
           <label htmlFor="applied_at" className="block text-sm font-medium text-gray-700 mb-1">
             Applied Date
           </label>
-          <input
+          <DatePicker
             id="applied_at"
-            type="date"
             value={appliedAt}
-            onChange={(e) => setAppliedAt(e.target.value)}
+            onChange={setAppliedAt}
             className={fieldClassName(saved)}
             disabled={saved}
           />

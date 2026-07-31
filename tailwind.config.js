@@ -5,6 +5,7 @@ export default {
     './dashboard.html',
     './src/popup/**/*.{js,ts,jsx,tsx}',
     './src/dashboard/**/*.{js,ts,jsx,tsx}',
+    './src/components/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     extend: {},

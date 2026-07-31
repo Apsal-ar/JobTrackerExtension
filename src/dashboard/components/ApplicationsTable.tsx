@@ -1,6 +1,6 @@
 import { format, parseISO } from 'date-fns'
-import { CalendarDays, ExternalLink } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { CalendarDays, ExternalLink, Search } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Application } from '../../lib/applicationTypes'
 import { formatEffortLevel } from '../../lib/dashboardUtils'
 import { supabase } from '../../lib/supabaseClient'
@@ -40,14 +40,33 @@ export default function ApplicationsTable({
   rangeLabel,
 }: ApplicationsTableProps) {
   const [page, setPage] = useState(0)
+  const [search, setSearch] = useState('')
   const [interviewCounts, setInterviewCounts] = useState<
     Record<string, number>
   >({})
   const [interviewsApp, setInterviewsApp] = useState<Application | null>(null)
 
-  const totalPages = Math.max(1, Math.ceil(applications.length / PAGE_SIZE))
+  const filteredApplications = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    if (!query) return applications
+
+    return applications.filter((app) => {
+      const company = app.company?.toLowerCase() ?? ''
+      const jobTitle = app.job_title?.toLowerCase() ?? ''
+      return company.includes(query) || jobTitle.includes(query)
+    })
+  }, [applications, search])
+
+  useEffect(() => {
+    setPage(0)
+  }, [search, applications])
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredApplications.length / PAGE_SIZE),
+  )
   const safePage = Math.min(page, totalPages - 1)
-  const pageRows = applications.slice(
+  const pageRows = filteredApplications.slice(
     safePage * PAGE_SIZE,
     safePage * PAGE_SIZE + PAGE_SIZE,
   )
@@ -86,15 +105,50 @@ export default function ApplicationsTable({
 
   return (
     <div>
-      <p className="mb-4 text-sm text-slate-500">
-        Showing{' '}
-        <span className="font-semibold text-slate-700">
-          {applications.length}
-        </span>{' '}
-        application{applications.length === 1 ? '' : 's'} in{' '}
-        <span className="font-medium text-slate-600">{rangeLabel}</span>
-      </p>
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-slate-500">
+          {search.trim() ? (
+            <>
+              Showing{' '}
+              <span className="font-semibold text-slate-700">
+                {filteredApplications.length}
+              </span>{' '}
+              of{' '}
+              <span className="font-semibold text-slate-700">
+                {applications.length}
+              </span>{' '}
+              application{applications.length === 1 ? '' : 's'} in{' '}
+              <span className="font-medium text-slate-600">{rangeLabel}</span>
+            </>
+          ) : (
+            <>
+              Showing{' '}
+              <span className="font-semibold text-slate-700">
+                {applications.length}
+              </span>{' '}
+              application{applications.length === 1 ? '' : 's'} in{' '}
+              <span className="font-medium text-slate-600">{rangeLabel}</span>
+            </>
+          )}
+        </p>
 
+        <div className="relative w-full sm:max-w-xs">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search company or role…"
+            className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 shadow-sm placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+          />
+        </div>
+      </div>
+
+      {filteredApplications.length === 0 ? (
+        <p className="py-8 text-center text-sm text-slate-500">
+          No applications match your search.
+        </p>
+      ) : (
       <div className="overflow-x-auto rounded-xl border border-slate-200/80 shadow-sm">
         <table className="min-w-full text-sm">
           <thead>
@@ -186,8 +240,9 @@ export default function ApplicationsTable({
           </tbody>
         </table>
       </div>
+      )}
 
-      {totalPages > 1 && (
+      {filteredApplications.length > 0 && totalPages > 1 && (
         <div className="mt-5 flex items-center justify-between">
           <button
             type="button"

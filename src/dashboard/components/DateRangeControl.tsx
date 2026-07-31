@@ -1,3 +1,4 @@
+import DatePicker, { datePickerInputClassName } from '../../components/DatePicker'
 import type { RangePreset } from '../../lib/applicationTypes'
 
 interface DateRangeControlProps {
@@ -44,18 +45,16 @@ export default function DateRangeControl({
 
       {preset === 'custom' && (
         <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="date"
+          <DatePicker
             value={customStart}
-            onChange={(e) => onCustomStartChange(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+            onChange={onCustomStartChange}
+            className={datePickerInputClassName}
           />
           <span className="text-sm text-slate-400">to</span>
-          <input
-            type="date"
+          <DatePicker
             value={customEnd}
-            onChange={(e) => onCustomEndChange(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+            onChange={onCustomEndChange}
+            className={datePickerInputClassName}
           />
         </div>
       )}

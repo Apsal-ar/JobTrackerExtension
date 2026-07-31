@@ -1,7 +1,7 @@
 export interface Interview {
   id: string
   application_id: string
-  stage: string | null
+  interview_stage: string | null
   interviewer_name: string | null
   interview_date: string | null
   interview_type: string | null
