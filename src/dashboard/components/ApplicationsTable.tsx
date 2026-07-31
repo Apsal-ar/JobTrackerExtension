@@ -1,8 +1,10 @@
 import { format, parseISO } from 'date-fns'
-import { ExternalLink } from 'lucide-react'
-import { useState } from 'react'
+import { CalendarDays, ExternalLink } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
 import type { Application } from '../../lib/applicationTypes'
 import { formatEffortLevel } from '../../lib/dashboardUtils'
+import { supabase } from '../../lib/supabaseClient'
+import InterviewsModal from './InterviewsModal'
 
 const PAGE_SIZE = 25
 
@@ -38,12 +40,41 @@ export default function ApplicationsTable({
   rangeLabel,
 }: ApplicationsTableProps) {
   const [page, setPage] = useState(0)
+  const [interviewCounts, setInterviewCounts] = useState<
+    Record<string, number>
+  >({})
+  const [interviewsApp, setInterviewsApp] = useState<Application | null>(null)
+
   const totalPages = Math.max(1, Math.ceil(applications.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages - 1)
   const pageRows = applications.slice(
     safePage * PAGE_SIZE,
     safePage * PAGE_SIZE + PAGE_SIZE,
   )
+
+  const loadInterviewCounts = useCallback(async () => {
+    const ids = applications.map((app) => app.id)
+    if (ids.length === 0) {
+      setInterviewCounts({})
+      return
+    }
+
+    const { data } = await supabase
+      .from('interviews')
+      .select('application_id')
+      .in('application_id', ids)
+
+    const counts: Record<string, number> = {}
+    for (const row of data ?? []) {
+      const appId = row.application_id as string
+      counts[appId] = (counts[appId] ?? 0) + 1
+    }
+    setInterviewCounts(counts)
+  }, [applications])
+
+  useEffect(() => {
+    loadInterviewCounts()
+  }, [loadInterviewCounts])
 
   if (applications.length === 0) {
     return (
@@ -76,6 +107,7 @@ export default function ApplicationsTable({
                 'CV Used',
                 'Effort',
                 'URL',
+                'Actions',
               ].map((col) => (
                 <th
                   key={col}
@@ -87,50 +119,70 @@ export default function ApplicationsTable({
             </tr>
           </thead>
           <tbody>
-            {pageRows.map((app, index) => (
-              <tr
-                key={app.id}
-                className={`border-b border-slate-100 transition-colors last:border-0 hover:bg-teal-50/40 ${
-                  index % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'
-                }`}
-              >
-                <td className="px-5 py-4 font-medium text-[#1e293b]">
-                  {app.company || '—'}
-                </td>
-                <td className="px-5 py-4 text-slate-700">
-                  {app.job_title || '—'}
-                </td>
-                <td className="whitespace-nowrap px-5 py-4 text-slate-600">
-                  {app.applied_date
-                    ? format(parseISO(app.applied_date), 'd MMM yyyy')
-                    : '—'}
-                </td>
-                <td className="max-w-[160px] truncate px-5 py-4 text-slate-600">
-                  {app.source || '—'}
-                </td>
-                <td className="px-5 py-4 text-slate-600">
-                  {app.cv_used?.trim() || '—'}
-                </td>
-                <td className="px-5 py-4">
-                  <EffortBadge level={app.effort_level} />
-                </td>
-                <td className="px-5 py-4">
-                  {app.url ? (
-                    <a
-                      href={app.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-700 ring-1 ring-inset ring-teal-600/20 transition-colors hover:bg-teal-100"
+            {pageRows.map((app, index) => {
+              const interviewCount = interviewCounts[app.id] ?? 0
+
+              return (
+                <tr
+                  key={app.id}
+                  className={`border-b border-slate-100 transition-colors last:border-0 hover:bg-teal-50/40 ${
+                    index % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'
+                  }`}
+                >
+                  <td className="px-5 py-4 font-medium text-[#1e293b]">
+                    {app.company || '—'}
+                  </td>
+                  <td className="px-5 py-4 text-slate-700">
+                    {app.job_title || '—'}
+                  </td>
+                  <td className="whitespace-nowrap px-5 py-4 text-slate-600">
+                    {app.applied_date
+                      ? format(parseISO(app.applied_date), 'd MMM yyyy')
+                      : '—'}
+                  </td>
+                  <td className="max-w-[160px] truncate px-5 py-4 text-slate-600">
+                    {app.source || '—'}
+                  </td>
+                  <td className="px-5 py-4 text-slate-600">
+                    {app.cv_used?.trim() || '—'}
+                  </td>
+                  <td className="px-5 py-4">
+                    <EffortBadge level={app.effort_level} />
+                  </td>
+                  <td className="px-5 py-4">
+                    {app.url ? (
+                      <a
+                        href={app.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-700 ring-1 ring-inset ring-teal-600/20 transition-colors hover:bg-teal-100"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Open
+                      </a>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td className="px-5 py-4">
+                    <button
+                      type="button"
+                      onClick={() => setInterviewsApp(app)}
+                      className="relative inline-flex items-center justify-center rounded-full bg-slate-100 p-2 text-slate-600 transition-colors hover:bg-teal-50 hover:text-teal-700"
+                      aria-label={`Interviews for ${app.company ?? 'application'}`}
+                      title="Interviews"
                     >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      Open
-                    </a>
-                  ) : (
-                    '—'
-                  )}
-                </td>
-              </tr>
-            ))}
+                      <CalendarDays className="h-4 w-4" />
+                      {interviewCount > 0 && (
+                        <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-teal-600 px-1 text-[10px] font-bold leading-none text-white">
+                          {interviewCount}
+                        </span>
+                      )}
+                    </button>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -157,6 +209,14 @@ export default function ApplicationsTable({
             Next
           </button>
         </div>
+      )}
+
+      {interviewsApp && (
+        <InterviewsModal
+          application={interviewsApp}
+          onClose={() => setInterviewsApp(null)}
+          onUpdated={loadInterviewCounts}
+        />
       )}
     </div>
   )
