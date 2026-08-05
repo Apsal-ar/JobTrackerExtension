@@ -1,10 +1,14 @@
 import { format, parseISO } from 'date-fns'
-import { CalendarDays, Trash2, X } from 'lucide-react'
+import { CalendarDays, Pencil, Trash2, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import DatePicker, { datePickerInputClassName } from '../../components/DatePicker'
 import type { Application } from '../../lib/applicationTypes'
 import type { Interview, InterviewOutcome } from '../../lib/interviewTypes'
-import { formatOutcome, outcomeToDb } from '../../lib/interviewTypes'
+import {
+  formatOutcome,
+  outcomeFromDb,
+  outcomeToDb,
+} from '../../lib/interviewTypes'
 import { supabase } from '../../lib/supabaseClient'
 
 const inputClassName =
@@ -16,6 +20,12 @@ const INTERVIEW_TYPE_SUGGESTIONS = [
   'On-site',
   'Technical',
   'Behavioral',
+]
+
+const OUTCOME_OPTIONS: { value: InterviewOutcome; label: string }[] = [
+  { value: 'positive', label: 'Successful' },
+  { value: 'negative', label: 'Unsuccessful' },
+  { value: 'pending', label: 'Pending' },
 ]
 
 interface InterviewsModalProps {
@@ -37,6 +47,7 @@ export default function InterviewsModal({
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
 
   const [stage, setStage] = useState('')
@@ -77,6 +88,28 @@ export default function InterviewsModal({
     setInterviewType('')
     setOutcome('pending')
     setNotes('')
+    setEditingId(null)
+  }
+
+  function startAdd() {
+    resetForm()
+    setShowForm(true)
+  }
+
+  function startEdit(interview: Interview) {
+    setEditingId(interview.id)
+    setStage(interview.interview_stage ?? '')
+    setInterviewerName(interview.interviewer_name ?? '')
+    setInterviewDate(interview.interview_date ?? todayISO())
+    setInterviewType(interview.interview_type ?? '')
+    setOutcome(outcomeFromDb(interview.is_positive))
+    setNotes(interview.notes ?? '')
+    setShowForm(true)
+  }
+
+  function cancelForm() {
+    setShowForm(false)
+    resetForm()
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -84,31 +117,41 @@ export default function InterviewsModal({
     setSaving(true)
     setError(null)
 
-    const { error: insertError } = await supabase.from('interviews').insert({
-      application_id: application.id,
+    const payload = {
       interview_stage: stage.trim() || null,
       interviewer_name: interviewerName.trim() || null,
       interview_date: interviewDate,
       interview_type: interviewType.trim() || null,
       is_positive: outcomeToDb(outcome),
       notes: notes.trim() || null,
-    })
+    }
+
+    const { error: saveError } = editingId
+      ? await supabase.from('interviews').update(payload).eq('id', editingId)
+      : await supabase.from('interviews').insert({
+          application_id: application.id,
+          ...payload,
+        })
 
     setSaving(false)
 
-    if (insertError) {
-      setError(insertError.message)
+    if (saveError) {
+      setError(saveError.message)
       return
     }
 
-    resetForm()
-    setShowForm(false)
+    cancelForm()
     await loadInterviews()
     onUpdated()
   }
 
   async function handleDelete(interviewId: string) {
     setError(null)
+
+    if (editingId === interviewId) {
+      cancelForm()
+    }
+
     const { error: deleteError } = await supabase
       .from('interviews')
       .delete()
@@ -182,7 +225,11 @@ export default function InterviewsModal({
               {interviews.map((interview) => (
                 <li
                   key={interview.id}
-                  className="rounded-lg border border-slate-200 bg-slate-50/50 p-3"
+                  className={`rounded-lg border p-3 ${
+                    editingId === interview.id
+                      ? 'border-teal-300 bg-teal-50/40'
+                      : 'border-slate-200 bg-slate-50/50'
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
@@ -220,14 +267,24 @@ export default function InterviewsModal({
                         </p>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(interview.id)}
-                      className="shrink-0 rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
-                      aria-label="Delete interview"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex shrink-0 gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => startEdit(interview)}
+                        className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-teal-50 hover:text-teal-700"
+                        aria-label="Edit interview"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(interview.id)}
+                        className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                        aria-label="Delete interview"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 </li>
               ))}
@@ -235,7 +292,13 @@ export default function InterviewsModal({
           )}
 
           {showForm ? (
-            <form onSubmit={handleSubmit} className="space-y-3 border-t border-slate-100 pt-4">
+            <form
+              onSubmit={handleSubmit}
+              className="space-y-3 border-t border-slate-100 pt-4"
+            >
+              <p className="text-sm font-semibold text-[#1e293b]">
+                {editingId ? 'Edit interview round' : 'Add interview round'}
+              </p>
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-600">
                   Interview stage
@@ -295,13 +358,7 @@ export default function InterviewsModal({
                   Outcome
                 </label>
                 <div className="inline-flex rounded-full border border-slate-200 bg-slate-100/80 p-1">
-                  {(
-                    [
-                      ['positive', 'Positive'],
-                      ['negative', 'Negative'],
-                      ['pending', 'Pending'],
-                    ] as const
-                  ).map(([value, label]) => (
+                  {OUTCOME_OPTIONS.map(({ value, label }) => (
                     <button
                       key={value}
                       type="button"
@@ -335,14 +392,15 @@ export default function InterviewsModal({
                   disabled={saving}
                   className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-teal-700 disabled:opacity-50"
                 >
-                  {saving ? 'Saving…' : 'Save'}
+                  {saving
+                    ? 'Saving…'
+                    : editingId
+                      ? 'Save changes'
+                      : 'Save'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowForm(false)
-                    resetForm()
-                  }}
+                  onClick={cancelForm}
                   className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
                 >
                   Cancel
@@ -352,7 +410,7 @@ export default function InterviewsModal({
           ) : (
             <button
               type="button"
-              onClick={() => setShowForm(true)}
+              onClick={startAdd}
               className="w-full rounded-lg border border-dashed border-teal-300 bg-teal-50/50 px-4 py-2.5 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-50"
             >
               + Add interview round

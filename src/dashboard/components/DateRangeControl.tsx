@@ -12,7 +12,8 @@ interface DateRangeControlProps {
 
 const PRESETS: { id: RangePreset; label: string }[] = [
   { id: 'last7', label: 'Last 7 days' },
-  { id: 'thisMonth', label: 'This month' },
+  { id: 'lastMonth', label: 'Last month' },
+  { id: 'allTime', label: 'All time' },
   { id: 'custom', label: 'Custom range' },
 ]
 
@@ -32,7 +33,7 @@ export default function DateRangeControl({
             key={id}
             type="button"
             onClick={() => onPresetChange(id)}
-            className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
+            className={`rounded-full px-3.5 py-2 text-sm font-medium transition-all ${
               preset === id
                 ? 'bg-teal-600 text-white shadow-sm'
                 : 'text-slate-600 hover:bg-white/70 hover:text-slate-900'

@@ -24,7 +24,7 @@ export function outcomeToDb(outcome: InterviewOutcome): boolean | null {
 }
 
 export function formatOutcome(isPositive: boolean | null): string {
-  if (isPositive === true) return 'Positive'
-  if (isPositive === false) return 'Negative'
+  if (isPositive === true) return 'Successful'
+  if (isPositive === false) return 'Unsuccessful'
   return 'Pending'
 }

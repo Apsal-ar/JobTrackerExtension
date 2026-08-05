@@ -3,23 +3,26 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Application, RangePreset } from '../lib/applicationTypes'
 import {
   applicationsPerDayData,
-  averagePerDayAllTime,
-  computeStreaks,
-  countInLast7Days,
-  countThisMonth,
+  averagePerDay,
+  countIdsInDateRange,
   cvBreakdownData,
+  earliestAppliedDate,
   filterByDateRange,
   getDateRange,
   heatmapData,
   mostActiveWeekday,
   sourceBreakdownData,
 } from '../lib/dashboardUtils'
+import type { Interview } from '../lib/interviewTypes'
+import type { RecruiterOutreach } from '../lib/outreachTypes'
 import { supabase } from '../lib/supabaseClient'
 import ApplicationsPerDayChart from './components/ApplicationsPerDayChart'
 import ApplicationsTable from './components/ApplicationsTable'
 import ContributionHeatmap from './components/ContributionHeatmap'
 import CvBreakdownChart from './components/CvBreakdownChart'
 import DateRangeControl from './components/DateRangeControl'
+import NextEventsTable, { toNextEventRows } from './components/NextEventsTable'
+import OutreachModal from './components/OutreachModal'
 import Scorecards from './components/Scorecards'
 import SourceChart from './components/SourceChart'
 import {
@@ -45,31 +48,92 @@ function sectionCard(title: string, children: ReactNode) {
 
 export default function Dashboard() {
   const [applications, setApplications] = useState<Application[]>([])
+  const [interviews, setInterviews] = useState<
+    Pick<
+      Interview,
+      | 'id'
+      | 'application_id'
+      | 'interview_date'
+      | 'interviewer_name'
+      | 'interview_stage'
+    >[]
+  >([])
+  const [outreach, setOutreach] = useState<
+    Pick<RecruiterOutreach, 'id' | 'contact_date'>[]
+  >([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showOutreachModal, setShowOutreachModal] = useState(false)
   const [preset, setPreset] = useState<RangePreset>('last7')
   const [customStart, setCustomStart] = useState(
     format(subDays(new Date(), 6), 'yyyy-MM-dd'),
   )
   const [customEnd, setCustomEnd] = useState(todayISO())
 
+  async function loadOutreach() {
+    const { data, error: outreachError } = await supabase
+      .from('recruiter_outreach')
+      .select('id, contact_date')
+
+    if (outreachError) {
+      setError(outreachError.message)
+      setOutreach([])
+      return
+    }
+
+    setOutreach(
+      (data as Pick<RecruiterOutreach, 'id' | 'contact_date'>[]) ?? [],
+    )
+  }
+
   useEffect(() => {
     async function load() {
       setLoading(true)
       setError(null)
 
-      const { data, error: fetchError } = await supabase
-        .from('applications')
-        .select(
-          'id, company, job_title, url, source, applied_date, cv_used, effort_level',
-        )
-        .order('applied_date', { ascending: false })
+      const [appsResult, interviewsResult, outreachResult] = await Promise.all([
+        supabase
+          .from('applications')
+          .select(
+            'id, company, job_title, url, source, applied_date, cv_used, effort_level',
+          )
+          .order('applied_date', { ascending: false }),
+        supabase
+          .from('interviews')
+          .select(
+            'id, application_id, interview_date, interviewer_name, interview_stage',
+          ),
+        supabase.from('recruiter_outreach').select('id, contact_date'),
+      ])
 
-      if (fetchError) {
-        setError(fetchError.message)
+      if (appsResult.error) {
+        setError(appsResult.error.message)
         setApplications([])
+        setInterviews([])
+        setOutreach([])
       } else {
-        setApplications((data as Application[]) ?? [])
+        setApplications((appsResult.data as Application[]) ?? [])
+        setInterviews(
+          (interviewsResult.data as Pick<
+            Interview,
+            | 'id'
+            | 'application_id'
+            | 'interview_date'
+            | 'interviewer_name'
+            | 'interview_stage'
+          >[]) ?? [],
+        )
+        if (outreachResult.error) {
+          setError(outreachResult.error.message)
+          setOutreach([])
+        } else {
+          setOutreach(
+            (outreachResult.data as Pick<
+              RecruiterOutreach,
+              'id' | 'contact_date'
+            >[]) ?? [],
+          )
+        }
       }
 
       setLoading(false)
@@ -79,8 +143,14 @@ export default function Dashboard() {
   }, [])
 
   const dateRange = useMemo(
-    () => getDateRange(preset, customStart, customEnd),
-    [preset, customStart, customEnd],
+    () =>
+      getDateRange(
+        preset,
+        customStart,
+        customEnd,
+        earliestAppliedDate(applications),
+      ),
+    [preset, customStart, customEnd, applications],
   )
 
   const filteredApplications = useMemo(() => {
@@ -109,9 +179,34 @@ export default function Dashboard() {
     [filteredApplications],
   )
 
-  const heatmapCounts = useMemo(() => heatmapData(applications), [applications])
+  const heatmapCounts = useMemo(
+    () => heatmapData(applications),
+    [applications],
+  )
 
-  const streaks = useMemo(() => computeStreaks(applications), [applications])
+  const nextEvents = useMemo(() => {
+    const companyByAppId = new Map(
+      applications.map((app) => [app.id, app.company] as const),
+    )
+    return toNextEventRows(interviews, companyByAppId, todayISO())
+  }, [applications, interviews])
+
+  const scorecardStats = useMemo(
+    () => ({
+      applications: filteredApplications.length,
+      avgPerDay: averagePerDay(filteredApplications, dateRange),
+      recruiterOutreach: countIdsInDateRange(
+        outreach.map((row) => ({ id: row.id, date: row.contact_date })),
+        dateRange,
+      ),
+      responses: countIdsInDateRange(
+        interviews.map((row) => ({ id: row.id, date: row.interview_date })),
+        dateRange,
+      ),
+      mostActiveDay: mostActiveWeekday(filteredApplications),
+    }),
+    [filteredApplications, dateRange, outreach, interviews],
+  )
 
   if (loading) {
     return (
@@ -170,24 +265,42 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
-          <DateRangeControl
-            preset={preset}
-            customStart={customStart}
-            customEnd={customEnd}
-            onPresetChange={setPreset}
-            onCustomStartChange={setCustomStart}
-            onCustomEndChange={setCustomEnd}
-          />
+          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+            <DateRangeControl
+              preset={preset}
+              customStart={customStart}
+              customEnd={customEnd}
+              onPresetChange={setPreset}
+              onCustomStartChange={setCustomStart}
+              onCustomEndChange={setCustomEnd}
+            />
+            <button
+              type="button"
+              onClick={() => setShowOutreachModal(true)}
+              className="inline-flex items-center justify-center self-end rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800"
+            >
+              Log recruiter outreach
+            </button>
+          </div>
         </header>
 
+        {showOutreachModal && (
+          <OutreachModal
+            applications={applications}
+            onClose={() => setShowOutreachModal(false)}
+            onSaved={() => {
+              void loadOutreach()
+            }}
+          />
+        )}
+
         <Scorecards
-          total={applications.length}
-          last7Days={countInLast7Days(applications)}
-          thisMonth={countThisMonth(applications)}
-          avgPerDay={averagePerDayAllTime(applications)}
-          currentStreak={streaks.current}
-          longestStreak={streaks.longest}
-          mostActiveDay={mostActiveWeekday(applications)}
+          applications={scorecardStats.applications}
+          avgPerDay={scorecardStats.avgPerDay}
+          recruiterOutreach={scorecardStats.recruiterOutreach}
+          responses={scorecardStats.responses}
+          mostActiveDay={scorecardStats.mostActiveDay}
+          rangeLabel={dateRange.label}
         />
 
         {sectionCard(
@@ -203,10 +316,13 @@ export default function Dashboard() {
           )}
         </div>
 
-        {sectionCard(
-          'Application activity',
-          <ContributionHeatmap counts={heatmapCounts} />,
-        )}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {sectionCard(
+            'Application activity',
+            <ContributionHeatmap counts={heatmapCounts} />,
+          )}
+          {sectionCard('Next events', <NextEventsTable events={nextEvents} />)}
+        </div>
 
         {sectionCard(
           'Recent applications',

@@ -9,7 +9,7 @@ export interface Application {
   effort_level: string | null
 }
 
-export type RangePreset = 'last7' | 'thisMonth' | 'custom'
+export type RangePreset = 'last7' | 'lastMonth' | 'allTime' | 'custom'
 
 export interface DateRange {
   start: Date

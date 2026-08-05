@@ -1,10 +1,9 @@
 import {
   BarChart2,
   Calendar,
-  CalendarDays,
-  Flame,
+  MessageSquareReply,
+  Send,
   TrendingUp,
-  Trophy,
   type LucideIcon,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
@@ -42,88 +41,68 @@ function Scorecard({
 }
 
 interface ScorecardsProps {
-  total: number
-  last7Days: number
-  thisMonth: number
+  applications: number
   avgPerDay: number
-  currentStreak: number
-  longestStreak: number
+  recruiterOutreach: number
+  responses: number
   mostActiveDay: string | null
+  rangeLabel: string
 }
 
 export default function Scorecards({
-  total,
-  last7Days,
-  thisMonth,
+  applications,
   avgPerDay,
-  currentStreak,
-  longestStreak,
+  recruiterOutreach,
+  responses,
   mostActiveDay,
+  rangeLabel,
 }: ScorecardsProps) {
   return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
       <Scorecard
-        label="Total applications"
+        label="Applications"
         value={
-          <p className="text-3xl font-bold tracking-tight">{total}</p>
+          <p className="text-3xl font-bold tracking-tight">{applications}</p>
         }
+        subtext={rangeLabel}
         icon={BarChart2}
       />
       <Scorecard
-        label="Last 7 days"
-        value={
-          <p className="text-3xl font-bold tracking-tight">{last7Days}</p>
-        }
-        icon={CalendarDays}
-      />
-      <Scorecard
-        label="This month"
-        value={
-          <p className="text-3xl font-bold tracking-tight">{thisMonth}</p>
-        }
-        icon={Calendar}
-      />
-      <Scorecard
-        label="Avg per day"
+        label="Average per day"
         value={
           <p className="text-3xl font-bold tracking-tight">
             {avgPerDay.toFixed(1)}
           </p>
         }
-        subtext="All-time average"
+        subtext={rangeLabel}
         icon={TrendingUp}
       />
       <Scorecard
-        label="Streak"
+        label="Recruiter outreach"
         value={
-          <div className="space-y-1.5 text-sm font-semibold text-[#1e293b]">
-            <p className="flex items-center justify-center gap-1.5">
-              <Flame className="h-4 w-4 shrink-0 text-orange-500" />
-              <span>
-                Current:{' '}
-                <span className="text-lg font-bold">{currentStreak}</span> days
-              </span>
-            </p>
-            <p className="flex items-center justify-center gap-1.5">
-              <Trophy className="h-4 w-4 shrink-0 text-amber-500" />
-              <span>
-                Longest:{' '}
-                <span className="text-lg font-bold">{longestStreak}</span> days
-              </span>
-            </p>
-          </div>
+          <p className="text-3xl font-bold tracking-tight">
+            {recruiterOutreach}
+          </p>
         }
-        icon={Flame}
-        iconClassName="text-orange-500"
+        subtext={rangeLabel}
+        icon={Send}
       />
       <Scorecard
-        label="Most active day"
+        label="Responses"
+        value={
+          <p className="text-3xl font-bold tracking-tight">{responses}</p>
+        }
+        subtext={rangeLabel}
+        icon={MessageSquareReply}
+      />
+      <Scorecard
+        label="Most active day of the week"
         value={
           <p className="text-2xl font-bold tracking-tight">
             {mostActiveDay ?? '—'}
           </p>
         }
-        subtext="All-time weekday"
+        subtext={rangeLabel}
         icon={Calendar}
       />
     </div>

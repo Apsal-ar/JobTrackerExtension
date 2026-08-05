@@ -7,7 +7,6 @@ import {
   format,
   isWithinInterval,
   parseISO,
-  startOfMonth,
   startOfWeek,
   subDays,
 } from 'date-fns'
@@ -29,10 +28,21 @@ function startOfToday(): Date {
   return d
 }
 
+export function earliestAppliedDate(
+  applications: Application[],
+): string | null {
+  const dates = applications
+    .map((a) => a.applied_date)
+    .filter((d): d is string => Boolean(d))
+    .sort()
+  return dates[0] ?? null
+}
+
 export function getDateRange(
   preset: RangePreset,
   customStart?: string,
   customEnd?: string,
+  earliestDate?: string | null,
 ): DateRange {
   const today = startOfToday()
 
@@ -44,11 +54,20 @@ export function getDateRange(
     }
   }
 
-  if (preset === 'thisMonth') {
+  if (preset === 'lastMonth') {
     return {
-      start: startOfMonth(today),
+      start: subDays(today, 30),
       end: today,
-      label: 'This month',
+      label: 'Last month',
+    }
+  }
+
+  if (preset === 'allTime') {
+    const start = earliestDate ? parseISO(earliestDate) : today
+    return {
+      start,
+      end: today,
+      label: 'All time',
     }
   }
 
@@ -74,84 +93,17 @@ export function filterByDateRange(
   })
 }
 
-export function countInLast7Days(applications: Application[]): number {
-  const today = startOfToday()
-  const start = subDays(today, 6)
-  return filterByDateRange(applications, {
-    start,
-    end: today,
-    label: 'Last 7 days',
-  }).length
+export function daySpan(range: DateRange): number {
+  return differenceInCalendarDays(range.end, range.start) + 1
 }
 
-export function countThisMonth(applications: Application[]): number {
-  const today = startOfToday()
-  return filterByDateRange(applications, {
-    start: startOfMonth(today),
-    end: today,
-    label: 'This month',
-  }).length
-}
-
-export function averagePerDayAllTime(applications: Application[]): number {
-  const dates = applications
-    .map((a) => a.applied_date)
-    .filter((d): d is string => Boolean(d))
-    .sort()
-
-  if (dates.length === 0) return 0
-
-  const first = parseISO(dates[0])
-  const today = startOfToday()
-  const daySpan = differenceInCalendarDays(today, first) + 1
-  return applications.length / daySpan
-}
-
-export function computeStreaks(applications: Application[]): {
-  current: number
-  longest: number
-} {
-  const uniqueDates = [
-    ...new Set(
-      applications
-        .map((a) => a.applied_date)
-        .filter((d): d is string => Boolean(d)),
-    ),
-  ].sort()
-
-  if (uniqueDates.length === 0) return { current: 0, longest: 0 }
-
-  let longest = 1
-  let run = 1
-
-  for (let i = 1; i < uniqueDates.length; i++) {
-    const prev = parseISO(uniqueDates[i - 1])
-    const curr = parseISO(uniqueDates[i])
-    if (differenceInCalendarDays(curr, prev) === 1) {
-      run++
-      longest = Math.max(longest, run)
-    } else if (differenceInCalendarDays(curr, prev) > 1) {
-      run = 1
-    }
-  }
-
-  const todayStr = format(startOfToday(), 'yyyy-MM-dd')
-  const yesterdayStr = format(subDays(startOfToday(), 1), 'yyyy-MM-dd')
-  const mostRecent = uniqueDates[uniqueDates.length - 1]
-
-  if (mostRecent !== todayStr && mostRecent !== yesterdayStr) {
-    return { current: 0, longest }
-  }
-
-  let current = 1
-  for (let i = uniqueDates.length - 2; i >= 0; i--) {
-    const prev = parseISO(uniqueDates[i])
-    const next = parseISO(uniqueDates[i + 1])
-    if (differenceInCalendarDays(next, prev) === 1) current++
-    else break
-  }
-
-  return { current, longest }
+export function averagePerDay(
+  applications: Application[],
+  range: DateRange,
+): number {
+  const days = daySpan(range)
+  if (days <= 0) return 0
+  return applications.length / days
 }
 
 export function mostActiveWeekday(applications: Application[]): string | null {
@@ -168,11 +120,29 @@ export function mostActiveWeekday(applications: Application[]): string | null {
   return WEEKDAY_NAMES[counts.indexOf(max)]
 }
 
+/** Count distinct record ids whose date falls within the selected range. */
+export function countIdsInDateRange(
+  records: { id: string; date: string | null }[],
+  range: DateRange,
+): number {
+  const ids = new Set<string>()
+
+  for (const record of records) {
+    if (!record.date) continue
+    const date = parseISO(record.date)
+    if (isWithinInterval(date, { start: range.start, end: range.end })) {
+      ids.add(record.id)
+    }
+  }
+
+  return ids.size
+}
+
 export function applicationsPerDayData(
   applications: Application[],
   range: DateRange,
 ): { label: string; count: number; date: string }[] {
-  const days = differenceInCalendarDays(range.end, range.start) + 1
+  const days = daySpan(range)
   const useWeekly = days > 56
 
   if (useWeekly) {
