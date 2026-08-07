@@ -14,7 +14,7 @@ function todayISO(): string {
 }
 
 const inputClassName =
-  'w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
+  'w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
 
 function fieldClassName(saved: boolean): string {
   return saved
@@ -138,23 +138,23 @@ export default function Popup() {
   }
 
   return (
-    <div className="w-[380px] p-4 bg-white">
-      <h1 className="text-lg font-semibold text-gray-900 mb-4">
+    <div className="box-border w-[380px] p-3 bg-white">
+      <h1 className="text-lg font-semibold text-gray-900 mb-3">
         Save Application
       </h1>
 
       {duplicateWarning && (
         <p
-          className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+          className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
           role="status"
         >
           {duplicateWarning}
         </p>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-2">
         <div>
-          <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-0.5">
             Company
           </label>
           <input
@@ -169,7 +169,7 @@ export default function Popup() {
         </div>
 
         <div>
-          <label htmlFor="job_title" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="job_title" className="block text-sm font-medium text-gray-700 mb-0.5">
             Job Title
           </label>
           <input
@@ -184,7 +184,7 @@ export default function Popup() {
         </div>
 
         <div>
-          <label htmlFor="url" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="url" className="block text-sm font-medium text-gray-700 mb-0.5">
             URL
           </label>
           <input
@@ -198,7 +198,7 @@ export default function Popup() {
         </div>
 
         <div>
-          <label htmlFor="applied_at" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="applied_at" className="block text-sm font-medium text-gray-700 mb-0.5">
             Applied Date
           </label>
           <DatePicker
@@ -211,7 +211,7 @@ export default function Popup() {
         </div>
 
         <div>
-          <label htmlFor="cv_used" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="cv_used" className="block text-sm font-medium text-gray-700 mb-0.5">
             CV Used
           </label>
           <input
@@ -226,7 +226,7 @@ export default function Popup() {
         </div>
 
         <div>
-          <label htmlFor="effort_level" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="effort_level" className="block text-sm font-medium text-gray-700 mb-0.5">
             Effort Level
           </label>
           <select
@@ -252,7 +252,7 @@ export default function Popup() {
         <button
           type="submit"
           disabled={isSaving || saved}
-          className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {saved
             ? 'Saved'
@@ -267,7 +267,7 @@ export default function Popup() {
       <button
         type="button"
         onClick={openDashboard}
-        className="mt-4 w-full rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        className="mt-3 w-full rounded-md border border-gray-300 px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
       >
         View Dashboard
       </button>
