@@ -70,6 +70,31 @@ export default function Dashboard() {
   )
   const [customEnd, setCustomEnd] = useState(todayISO())
 
+  async function loadInterviews() {
+    const { data, error: interviewsError } = await supabase
+      .from('interviews')
+      .select(
+        'id, application_id, interview_date, interviewer_name, interview_stage',
+      )
+
+    if (interviewsError) {
+      setError(interviewsError.message)
+      setInterviews([])
+      return
+    }
+
+    setInterviews(
+      (data as Pick<
+        Interview,
+        | 'id'
+        | 'application_id'
+        | 'interview_date'
+        | 'interviewer_name'
+        | 'interview_stage'
+      >[]) ?? [],
+    )
+  }
+
   async function loadOutreach() {
     const { data, error: outreachError } = await supabase
       .from('recruiter_outreach')
@@ -251,7 +276,8 @@ export default function Dashboard() {
   return (
     <div className={pageBg}>
       <div className="mx-auto max-w-7xl space-y-8 p-6 lg:p-10">
-        <header className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-4">
+          <header className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4">
             <img
               src="/icons/icon48.png"
@@ -265,7 +291,7 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
-          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+          <div className="flex flex-col gap-3 sm:items-end">
             <DateRangeControl
               preset={preset}
               customStart={customStart}
@@ -282,7 +308,17 @@ export default function Dashboard() {
               Log recruiter outreach
             </button>
           </div>
-        </header>
+          </header>
+
+          <Scorecards
+            applications={scorecardStats.applications}
+            avgPerDay={scorecardStats.avgPerDay}
+            recruiterOutreach={scorecardStats.recruiterOutreach}
+            responses={scorecardStats.responses}
+            mostActiveDay={scorecardStats.mostActiveDay}
+            rangeLabel={dateRange.label}
+          />
+        </div>
 
         {showOutreachModal && (
           <OutreachModal
@@ -293,15 +329,6 @@ export default function Dashboard() {
             }}
           />
         )}
-
-        <Scorecards
-          applications={scorecardStats.applications}
-          avgPerDay={scorecardStats.avgPerDay}
-          recruiterOutreach={scorecardStats.recruiterOutreach}
-          responses={scorecardStats.responses}
-          mostActiveDay={scorecardStats.mostActiveDay}
-          rangeLabel={dateRange.label}
-        />
 
         {sectionCard(
           `Applications per ${isWeekly ? 'week' : 'day'}`,
@@ -321,7 +348,15 @@ export default function Dashboard() {
             'Application activity',
             <ContributionHeatmap counts={heatmapCounts} />,
           )}
-          {sectionCard('Next events', <NextEventsTable events={nextEvents} />)}
+          {sectionCard(
+            'Next events',
+            <NextEventsTable
+              events={nextEvents}
+              onUpdated={() => {
+                void loadInterviews()
+              }}
+            />,
+          )}
         </div>
 
         {sectionCard(
