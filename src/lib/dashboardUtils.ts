@@ -6,11 +6,15 @@ import {
   endOfWeek,
   format,
   isWithinInterval,
-  parseISO,
   startOfWeek,
   subDays,
 } from 'date-fns'
 import type { Application, DateRange, RangePreset } from './applicationTypes'
+import {
+  appliedDateString,
+  parseAppliedDate,
+  startOfCalendarDay,
+} from './appliedDate'
 
 const WEEKDAY_NAMES = [
   'Sunday',
@@ -21,12 +25,6 @@ const WEEKDAY_NAMES = [
   'Friday',
   'Saturday',
 ]
-
-function startOfToday(): Date {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d
-}
 
 export function earliestAppliedDate(
   applications: Application[],
@@ -43,8 +41,9 @@ export function getDateRange(
   customStart?: string,
   customEnd?: string,
   earliestDate?: string | null,
+  referenceDate?: Date,
 ): DateRange {
-  const today = startOfToday()
+  const today = startOfCalendarDay(referenceDate ?? new Date())
 
   if (preset === 'last7') {
     return {
@@ -63,7 +62,7 @@ export function getDateRange(
   }
 
   if (preset === 'allTime') {
-    const start = earliestDate ? parseISO(earliestDate) : today
+    const start = earliestDate ? parseAppliedDate(earliestDate) : today
     return {
       start,
       end: today,
@@ -71,8 +70,8 @@ export function getDateRange(
     }
   }
 
-  const start = customStart ? parseISO(customStart) : today
-  const end = customEnd ? parseISO(customEnd) : today
+  const start = customStart ? parseAppliedDate(customStart) : today
+  const end = customEnd ? parseAppliedDate(customEnd) : today
   const [rangeStart, rangeEnd] = start <= end ? [start, end] : [end, start]
 
   return {
@@ -88,7 +87,7 @@ export function filterByDateRange(
 ): Application[] {
   return applications.filter((app) => {
     if (!app.applied_date) return false
-    const date = parseISO(app.applied_date)
+    const date = parseAppliedDate(app.applied_date)
     return isWithinInterval(date, { start: range.start, end: range.end })
   })
 }
@@ -111,12 +110,13 @@ export function mostActiveWeekday(applications: Application[]): string | null {
 
   for (const app of applications) {
     if (!app.applied_date) continue
-    counts[parseISO(app.applied_date).getDay()]++
+    counts[parseAppliedDate(app.applied_date).getDay()]++
   }
 
   const max = Math.max(...counts)
   if (max === 0) return null
 
+  // Tie-break: earliest weekday in calendar order (Sunday → Saturday).
   return WEEKDAY_NAMES[counts.indexOf(max)]
 }
 
@@ -129,7 +129,7 @@ export function countIdsInDateRange(
 
   for (const record of records) {
     if (!record.date) continue
-    const date = parseISO(record.date)
+    const date = parseAppliedDate(record.date)
     if (isWithinInterval(date, { start: range.start, end: range.end })) {
       ids.add(record.id)
     }
@@ -155,7 +155,7 @@ export function applicationsPerDayData(
       const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 })
       const count = applications.filter((app) => {
         if (!app.applied_date) return false
-        const date = parseISO(app.applied_date)
+        const date = parseAppliedDate(app.applied_date)
         return isWithinInterval(date, {
           start: weekStart,
           end: weekEnd < range.end ? weekEnd : range.end,
@@ -172,7 +172,7 @@ export function applicationsPerDayData(
 
   return eachDayOfInterval({ start: range.start, end: range.end }).map(
     (day) => {
-      const dateStr = format(day, 'yyyy-MM-dd')
+      const dateStr = appliedDateString(day)
       const count = applications.filter(
         (app) => app.applied_date === dateStr,
       ).length

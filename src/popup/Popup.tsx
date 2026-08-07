@@ -4,6 +4,10 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { isLinkedInJobUrl } from '../lib/isLinkedInJobUrl'
 import { parseTitleForJobInfo } from '../lib/parseTitleForJobInfo'
 import { supabase } from '../lib/supabaseClient'
+import {
+  isDuplicateApplicationUrl,
+  normalizeApplicationUrl,
+} from '../lib/urlUtils'
 
 function todayISO(): string {
   return new Date().toISOString().split('T')[0]
@@ -37,18 +41,24 @@ export default function Popup() {
       if (!tab?.url) return
 
       const currentTabUrl = tab.url
-      setUrl(currentTabUrl)
+      const normalizedUrl = normalizeApplicationUrl(currentTabUrl)
+      setUrl(normalizedUrl)
 
       console.log('[duplicate-check] currentTabUrl:', currentTabUrl)
       const { data, error: duplicateError } = await supabase
         .from('applications')
-        .select('applied_date, applied_time')
-        .eq('url', currentTabUrl)
-        .maybeSingle()
+        .select('applied_date, applied_time, url')
+        .not('url', 'is', null)
       console.log('[duplicate-check] data, error:', data, duplicateError)
 
-      if (!duplicateError && data?.applied_date) {
-        const formattedDate = format(parseISO(data.applied_date), 'd MMMM yyyy')
+      const duplicate = data?.find((row) =>
+        row.url
+          ? isDuplicateApplicationUrl(normalizedUrl, row.url)
+          : false,
+      )
+
+      if (!duplicateError && duplicate?.applied_date) {
+        const formattedDate = format(parseISO(duplicate.applied_date), 'd MMMM yyyy')
         setDuplicateWarning(
           `You already applied to this job on ${formattedDate}.`,
         )
@@ -97,7 +107,7 @@ export default function Popup() {
       const { error: insertError } = await supabase.from('applications').insert({
         company,
         job_title: jobTitle,
-        url,
+        url: normalizeApplicationUrl(url),
         source,
         applied_date: appliedAt,
         status: 'applied',
